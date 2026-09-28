@@ -1,0 +1,9 @@
+build
+.deps
+.venv
+data
+models
+results
+eval
+.git
+*.mp4

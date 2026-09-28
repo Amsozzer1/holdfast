@@ -1,0 +1,12 @@
+build/
+.deps/
+.venv/
+data/
+models/
+results/
+eval/third_party/
+*.mp4
+*.gif
+!docs/*.gif
+.DS_Store
+__pycache__/
