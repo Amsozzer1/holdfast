@@ -1,0 +1,22 @@
+{
+  "version": 6,
+  "configurePresets": [
+    { "name": "base", "hidden": true, "generator": "Ninja", "binaryDir": "${sourceDir}/build/${presetName}" },
+    { "name": "release", "inherits": "base", "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" } },
+    { "name": "debug",   "inherits": "base", "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" } },
+    { "name": "asan",    "inherits": "base", "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "HOLDFAST_SANITIZE": "ON", "HOLDFAST_BUILD_APPS": "OFF" } },
+    { "name": "core",    "inherits": "base", "description": "Core + tests only (no OpenCV/ORT). Used by CI.",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "HOLDFAST_BUILD_APPS": "OFF" } }
+  ],
+  "buildPresets": [
+    { "name": "release", "configurePreset": "release" },
+    { "name": "debug",   "configurePreset": "debug" },
+    { "name": "asan",    "configurePreset": "asan" },
+    { "name": "core",    "configurePreset": "core" }
+  ],
+  "testPresets": [
+    { "name": "release", "configurePreset": "release", "output": { "outputOnFailure": true } },
+    { "name": "asan",    "configurePreset": "asan",    "output": { "outputOnFailure": true } },
+    { "name": "core",    "configurePreset": "core",    "output": { "outputOnFailure": true } }
+  ]
+}
