@@ -32,6 +32,9 @@ jobs:
       - name: install
         working-directory: web
         run: npm ci --ignore-scripts
+      - name: audit dependencies (fail on high severity)
+        working-directory: web
+        run: npm audit --audit-level=high
       - name: smoke-test the module (1 simulated minute, both trackers)
         working-directory: web
         run: npm run smoke
