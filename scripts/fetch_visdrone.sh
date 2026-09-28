@@ -8,7 +8,7 @@ PY="${PYTHON:-$ROOT/.venv/bin/python}"
 mkdir -p "$ROOT/data" && cd "$ROOT/data"
 [ -d VisDrone2019-MOT-val/sequences ] && { echo "already present"; exit 0; }
 
-"$PY" -m pip -q install huggingface_hub gdown
+"$PY" -m pip -q install huggingface_hub==2.0.0 gdown==6.4.0
 if "$PY" - <<'PY'
 from huggingface_hub import snapshot_download
 snapshot_download("huseyincavus/visdrone2019-mot", repo_type="dataset",

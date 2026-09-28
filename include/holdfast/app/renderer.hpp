@@ -37,7 +37,8 @@ public:
 private:
     void draw_panel(cv::Mat& canvas, const Panel& p, std::map<int, std::deque<cv::Point2f>>& trails, Banner banner);
 
-    FILE* pipe_ = nullptr;
+    FILE* pipe_ = nullptr;  // write end of the pipe to ffmpeg's stdin
+    int child_ = -1;        // ffmpeg pid
     cv::Size src_, panel_;
     double scale_;
     int n_;

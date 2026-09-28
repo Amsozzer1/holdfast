@@ -6,13 +6,14 @@
 #   docker run --rm --cpus=1 -v $PWD/data:/data -v $PWD/models:/models holdfast \
 #       --source /data/VisDrone2019-MOT-val/sequences/<seq> --model /models/yolox_nano.onnx
 
-FROM ubuntu:24.04 AS deps
+# Base image pinned by digest (multi-arch index) so builds can't silently change.
+FROM ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3 AS deps
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential cmake ninja-build curl ca-certificates libeigen3-dev libgtest-dev \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
-COPY scripts/build_opencv_min.sh scripts/fetch_onnxruntime.sh scripts/
+COPY scripts/_verify.sh scripts/build_opencv_min.sh scripts/fetch_onnxruntime.sh scripts/
 RUN ./scripts/build_opencv_min.sh /opt/opencv && ./scripts/fetch_onnxruntime.sh /opt/onnxruntime
 
 FROM deps AS build
@@ -35,9 +36,10 @@ RUN cmake --preset asan && cmake --build --preset asan && ctest --preset asan
 
 # Onboard image: tracker binaries + ONNX Runtime only. (Rendering MP4s needs the ffmpeg CLI;
 # do that on a workstation, not on the vehicle.)
-FROM ubuntu:24.04 AS runtime
+FROM ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3 AS runtime
 COPY --from=build /opt/onnxruntime/lib/libonnxruntime.so* /usr/local/lib/
 COPY --from=build /src/build/holdfast_run /src/build/holdfast_bench /usr/local/bin/
-RUN ldconfig
+RUN ldconfig && useradd --create-home --uid 10001 holdfast && mkdir -p /work && chown holdfast /work
+USER holdfast
 WORKDIR /work
 ENTRYPOINT ["holdfast_bench"]
