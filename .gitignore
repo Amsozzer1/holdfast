@@ -3,7 +3,9 @@ build/
 .venv/
 data/
 models/
-results/
+results/*
+!results/summary.md
+!results/summary.json
 eval/third_party/
 *.mp4
 *.gif
