@@ -12,4 +12,7 @@ What the project does to keep the supply chain honest:
 * CI runs with a read-only token and actions pinned to commit SHAs; Dependabot proposes updates.
 * The renderer starts `ffmpeg` with an argument vector (no shell), so file paths are never
   interpreted as shell syntax.
+* The browser playground ships with a strict Content-Security-Policy (same-origin scripts only,
+  `'wasm-unsafe-eval'` for the tracker's WebAssembly, no `eval`/`new Function`: the Emscripten
+  build uses `-sDYNAMIC_EXECUTION=0`). It makes no network requests and stores nothing.
 * No datasets, model weights or credentials are stored in the repository.

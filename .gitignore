@@ -12,3 +12,7 @@ eval/third_party/
 !docs/*.gif
 .DS_Store
 __pycache__/
+web/node_modules/
+web/dist/
+web/src/wasm/
+*.tsbuildinfo

@@ -9,3 +9,6 @@ updates:
   - package-ecosystem: pip
     directory: /eval
     schedule: { interval: monthly }
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: monthly }
