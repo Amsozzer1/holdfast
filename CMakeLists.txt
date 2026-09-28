@@ -26,7 +26,9 @@ add_library(holdfast_core STATIC
   src/degrade.cpp
   src/gt_detector.cpp
   src/mot_io.cpp
-  src/stage_timer.cpp)
+  src/stage_timer.cpp
+  src/sim.cpp
+  src/playground.cpp)
 target_include_directories(holdfast_core PUBLIC include)
 target_link_libraries(holdfast_core PUBLIC Eigen3::Eigen)
 target_compile_options(holdfast_core PRIVATE -Wall -Wextra -Wpedantic)
@@ -76,7 +78,8 @@ if(HOLDFAST_BUILD_TESTS)
     tests/test_kalman.cpp
     tests/test_tracker.cpp
     tests/test_degrade.cpp
-    tests/test_gt_detector.cpp)
+    tests/test_gt_detector.cpp
+    tests/test_playground.cpp)
   target_link_libraries(holdfast_tests PRIVATE holdfast_core GTest::gtest_main)
   include(GoogleTest)
   gtest_discover_tests(holdfast_tests)

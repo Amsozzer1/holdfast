@@ -15,6 +15,7 @@
 #include "holdfast/app/renderer.hpp"
 #include "holdfast/degrade.hpp"
 #include "holdfast/gt_detector.hpp"
+#include "holdfast/live_stats.hpp"
 #include "holdfast/mot_io.hpp"
 #include "holdfast/tracker.hpp"
 
@@ -29,20 +30,6 @@ std::string title_for(const std::string& config) {
     if (config == "full_nocmc") return "HOLDFAST  (no camera-motion comp.)";
     return config;
 }
-
-// Live identity-switch estimate for the video overlay: a GT object seen under a different
-// track id than last time. TrackEval computes the real numbers; this is only for display.
-struct LiveIdStats {
-    std::map<int, int> gt_to_track;
-    int switches = 0;
-    void observe(const std::vector<TrackOutput>& out) {
-        for (const auto& t : out) {
-            if (!t.matched_this_frame || t.last_gt_id < 0) continue;
-            auto [it, inserted] = gt_to_track.try_emplace(t.last_gt_id, t.id);
-            if (!inserted && it->second != t.id) { ++switches; it->second = t.id; }
-        }
-    }
-};
 
 }  // namespace
 

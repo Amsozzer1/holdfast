@@ -5,6 +5,9 @@ picture breaks up** (frame blackouts, frozen feeds, detection dropout, timestamp
 **while the camera itself moves**. Headless, CPU-only, runs in a 242 MB Linux container on
 x86 or ARM64.
 
+**[▶ Try it in the browser](https://amsozzer1.github.io/holdfast/)**: the same C++ tracker compiled
+to WebAssembly. Cut the video, freeze it, shake the camera, and watch two trackers side by side.
+
 ![Blackout: baseline (left) hands out new IDs after 20 lost frames; Holdfast (right) keeps them](docs/blackout.gif)
 
 *Same degraded input on both sides. During the blackout the baseline's boxes freeze in
@@ -139,6 +142,13 @@ build/release/holdfast_run \
   --out-dir results/try --render results/try.mp4
 ```
 
+Browser playground (`web/`, React + TypeScript + Vite; the core is compiled with Emscripten
+in a pinned container, so no local Emscripten install is needed):
+
+```bash
+./scripts/build_wasm.sh && cd web && npm ci && npm run dev
+```
+
 Docker (x86_64 or ARM64): `docker build -t holdfast .`; `docker build --target asan .`
 runs the core tests under ASan + UBSan.
 
@@ -150,8 +160,10 @@ include/holdfast/         core headers (Eigen + std only)
   app/                    OpenCV / ONNX Runtime layer: image source, CMC, detector, renderer
 src/                      implementations
 apps/                     holdfast_run, holdfast_bench
-tests/                    GoogleTest: 29 core + 3 app tests
+tests/                    GoogleTest: 34 core + 3 app tests
 eval/                     TrackEval wrapper, OC-SORT runner, sweep
+wasm/                     Emscripten bindings for the browser playground
+web/                      the playground (React + TypeScript + Vite, canvas rendering)
 scripts/                  dependency, data, demo and GIF scripts
 docs/                     design notes, sequences, GIF
 ```
