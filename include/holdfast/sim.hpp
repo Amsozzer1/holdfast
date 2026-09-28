@@ -76,13 +76,19 @@ private:
         bool car;
         double x, y, vx, vy, w, h;  // world centre, px/s, size (along x/y)
         double heading_timer = 0;   // pedestrians: time to next heading change
-        int last_crossing = -1;     // cars: last intersection handled
+        // Cars drive along one road: orientation, direction, cruise and current speed.
+        bool horizontal = true;
+        int dir = 1;
+        double cruise = 0, speed = 0;
     };
 
     void spawn_initial();
     void maintain_population();
     bool spawn_one(bool inside_view);
     void move_objects(double dt);
+    void move_car(Object& o, double dt, double t);
+    [[nodiscard]] bool lane_free(bool horizontal, int dir, double lane, double pos, double clearance, const Object* self) const;
+    [[nodiscard]] bool green(bool horizontal, int ix, int iy, double t) const;
     void move_camera(double dt);
     [[nodiscard]] std::vector<SimBox> visible_truth(const Affine2& view) const;
     [[nodiscard]] std::vector<Detection> detect(const std::vector<SimBox>& truth);
