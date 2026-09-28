@@ -50,10 +50,13 @@ def run_preset(args, preset: str, sequences: list[str]) -> Path:
         cmd = [str(args.bin), "--source", str(args.data / "sequences" / seq), "--gt", str(args.data / "annotations" / f"{seq}.txt"),
                "--configs", configs, "--degrade", preset, "--seed", str(args.seed), "--out-dir", str(out), "--quiet"]
         subprocess.run(cmd, check=True)
-        run_ocsort(out / "dets" / f"{seq}.jsonl", out / "trackers" / "ocsort" / "data" / f"{seq}.txt")
 
     with ThreadPoolExecutor(args.jobs) as ex:
         list(ex.map(one, sequences))
+    # OC-SORT keeps its track-id counter in a class variable, so it must not run in parallel
+    # threads within one process (they would share and reset each other's ids).
+    for seq in sequences:
+        run_ocsort(out / "dets" / f"{seq}.jsonl", out / "trackers" / "ocsort" / "data" / f"{seq}.txt")
     return out
 
 

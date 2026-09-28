@@ -154,8 +154,8 @@ lower every row of the table.
 ## 10. Time budget (one core)
 
 See the README latency table. On one core the detector is ~2/3 of the frame time, CMC
-about a quarter, JPEG decode the rest; the tracker itself is well under a millisecond
-for ~100 objects. So the tracker is not the bottleneck; the detector is, which is why
+about a quarter, JPEG decode the rest; the tracker itself is ~0.1 ms
+for ~50 detections per frame. So the tracker is not the bottleneck; the detector is, which is why
 TensorRT/INT8 on a Jetson is the first thing to do on real hardware.
 
 ## 11. What I would do next
