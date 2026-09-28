@@ -7,7 +7,7 @@
 #       --source /data/VisDrone2019-MOT-val/sequences/<seq> --model /models/yolox_nano.onnx
 
 # Base image pinned by digest (multi-arch index) so builds can't silently change.
-FROM ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3 AS deps
+FROM ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78 AS deps
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential cmake ninja-build curl ca-certificates libeigen3-dev libgtest-dev \
@@ -36,7 +36,7 @@ RUN cmake --preset asan && cmake --build --preset asan && ctest --preset asan
 
 # Onboard image: tracker binaries + ONNX Runtime only. (Rendering MP4s needs the ffmpeg CLI;
 # do that on a workstation, not on the vehicle.)
-FROM ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3 AS runtime
+FROM ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78 AS runtime
 COPY --from=build /opt/onnxruntime/lib/libonnxruntime.so* /usr/local/lib/
 COPY --from=build /src/build/holdfast_run /src/build/holdfast_bench /usr/local/bin/
 RUN ldconfig && useradd --create-home --uid 10001 holdfast && mkdir -p /work && chown holdfast /work
