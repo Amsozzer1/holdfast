@@ -5,6 +5,14 @@
 #include <format>
 #include <opencv2/imgproc.hpp>
 #include <stdexcept>
+#include <vector>
+
+#include <csignal>
+#include <spawn.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+extern char** environ;
 
 namespace holdfast {
 
@@ -56,16 +64,43 @@ Renderer::Renderer(const std::string& path, cv::Size source_size, int panels, do
     : src_(source_size), n_(panels), trails_(panels) {
     scale_ = static_cast<double>(panel_width) / source_size.width;
     panel_ = cv::Size(panel_width, static_cast<int>(std::lround(source_size.height * scale_ / 2.0)) * 2);
-    const std::string cmd = std::format(
-        "ffmpeg -y -loglevel error -f rawvideo -pix_fmt bgr24 -s {}x{} -r {} -i - "
-        "-c:v libx264 -preset veryfast -crf 22 -pix_fmt yuv420p -movflags +faststart \"{}\"",
-        panel_.width * n_, panel_.height, fps, path);
-    pipe_ = popen(cmd.c_str(), "w");
-    if (!pipe_) throw std::runtime_error("cannot start ffmpeg (is it installed?)");
+    // Spawn ffmpeg directly with an argv array (no shell), so the output path is never
+    // interpreted as shell syntax.
+    const std::vector<std::string> args = {
+        "ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "bgr24",
+        "-s", std::format("{}x{}", panel_.width * n_, panel_.height), "-r", std::format("{}", fps), "-i", "-",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+        "--", path};
+    std::vector<char*> argv;
+    for (const auto& a : args) argv.push_back(const_cast<char*>(a.c_str()));
+    argv.push_back(nullptr);
+
+    std::signal(SIGPIPE, SIG_IGN);  // a dead ffmpeg becomes a write error, not a silent exit
+    int fds[2];
+    if (pipe(fds) != 0) throw std::runtime_error("pipe() failed");
+    posix_spawn_file_actions_t fa;
+    posix_spawn_file_actions_init(&fa);
+    posix_spawn_file_actions_adddup2(&fa, fds[0], STDIN_FILENO);
+    posix_spawn_file_actions_addclose(&fa, fds[1]);
+    pid_t pid = -1;
+    const int rc = posix_spawnp(&pid, "ffmpeg", &fa, nullptr, argv.data(), environ);
+    posix_spawn_file_actions_destroy(&fa);
+    close(fds[0]);
+    if (rc != 0) {
+        close(fds[1]);
+        throw std::runtime_error("cannot start ffmpeg (is it installed?)");
+    }
+    child_ = pid;
+    pipe_ = fdopen(fds[1], "w");
+    if (!pipe_) throw std::runtime_error("fdopen() failed");
 }
 
 Renderer::~Renderer() {
-    if (pipe_) pclose(pipe_);
+    if (pipe_) std::fclose(pipe_);  // EOF on ffmpeg's stdin finalizes the file
+    if (child_ > 0) {
+        int status = 0;
+        waitpid(child_, &status, 0);
+    }
 }
 
 void Renderer::draw_panel(cv::Mat& canvas, const Panel& p, std::map<int, std::deque<cv::Point2f>>& trails, Banner banner) {
@@ -149,7 +184,8 @@ void Renderer::draw(const cv::Mat& image, const std::vector<Panel>& panels, Bann
     }
     const std::string foot = std::format("frame {:4d}   t {:6.2f}s   {}", frame, t, footer);
     label(out, foot, cv::Point(8, out.rows - 8), 0.5, cv::Scalar(255, 255, 255), cv::Scalar(30, 30, 30));
-    fwrite(out.data, 1, out.total() * out.elemSize(), pipe_);
+    const size_t n = out.total() * out.elemSize();
+    if (std::fwrite(out.data, 1, n, pipe_) != n) throw std::runtime_error("ffmpeg stopped accepting frames (see its error above)");
 }
 
 }  // namespace holdfast

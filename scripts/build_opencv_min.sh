@@ -2,8 +2,10 @@
 # Builds a minimal OpenCV (core, imgproc, imgcodecs, video, calib3d) into .deps/opencv.
 # ~100 MB installed, versus several GB for a full distro/Homebrew OpenCV.
 set -euo pipefail
-VER="${OPENCV_VERSION:-4.10.0}"
+VER="4.10.0"
+SHA256="b2171af5be6b26f7a06b1229948bbb2bdaa74fcf5cd097e0af6378fce50a6eb9"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+. "$(dirname "$0")/_verify.sh"
 PREFIX="${1:-$ROOT/.deps/opencv}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -13,6 +15,7 @@ if [ -f "$PREFIX/lib/cmake/opencv4/OpenCVConfig.cmake" ]; then
 fi
 
 curl -fsSL --retry 6 --retry-all-errors --retry-delay 5 -o "$WORK/src.tar.gz" "https://github.com/opencv/opencv/archive/refs/tags/${VER}.tar.gz"
+verify_sha256 "$WORK/src.tar.gz" "$SHA256"
 tar xzf "$WORK/src.tar.gz" -C "$WORK"
 cmake -S "$WORK/opencv-${VER}" -B "$WORK/build" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX" \
