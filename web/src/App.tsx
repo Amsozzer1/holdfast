@@ -20,7 +20,7 @@ interface SideStats { idSwitches: number; recoveries: number; recoveriesCorrect:
 interface Settings {
   dropout: number; jitterMs: number; objects: number; falsePositives: number; camera: number; chaos: boolean;
 }
-const DEFAULTS: Settings = { dropout: 0.1, jitterMs: 0, objects: 45, falsePositives: 0.6, camera: 2, chaos: false };
+const DEFAULTS: Settings = { dropout: 0.1, jitterMs: 0, objects: 45, falsePositives: 0.6, camera: 1, chaos: false };
 
 // Initial state from the URL, e.g. ?left=cmc&right=full&camera=2&chaos=1&seed=7&t=20
 function fromUrl() {

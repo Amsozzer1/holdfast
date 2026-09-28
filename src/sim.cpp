@@ -89,6 +89,9 @@ bool Simulator::spawn_one(bool inside_view) {
         if (!candidates.empty()) {
             const double r = candidates[rng_.uniform_int(0, static_cast<int>(candidates.size()) - 1)];
             const double length = rng_.uniform(40, 56), width = rng_.uniform(20, 26);
+            o.horizontal = horizontal;
+            o.dir = dir;
+            o.cruise = o.speed = speed;
             if (horizontal) {
                 o.w = length; o.h = width;
                 o.y = r + dir * kLane;
@@ -100,7 +103,9 @@ bool Simulator::spawn_one(bool inside_view) {
                 o.y = inside_view ? cam_y_ + rng_.uniform(-half_h, half_h) : cam_y_ - dir * half_h;
                 o.vy = dir * speed;
             }
-            placed = true;
+            // Never spawn on top of another car.
+            placed = lane_free(horizontal, dir, horizontal ? o.y : o.x, horizontal ? o.x : o.y, 90, nullptr);
+            if (!placed) return false;
         }
     }
     if (!placed) {
@@ -163,49 +168,95 @@ void Simulator::maintain_population() {
     }
 }
 
+bool Simulator::lane_free(bool horizontal, int dir, double lane, double pos, double clearance, const Object* self) const {
+    for (const auto& p : objects_) {
+        if (&p == self || !p.car || p.horizontal != horizontal || p.dir != dir) continue;
+        const double p_lane = horizontal ? p.y : p.x, p_pos = horizontal ? p.x : p.y;
+        if (std::abs(p_lane - lane) < 4 && std::abs(p_pos - pos) < clearance) return false;
+    }
+    return true;
+}
+
+bool Simulator::green(bool horizontal, int ix, int iy, double t) const {
+    // 14 s cycle per intersection: 6 s horizontal green, 1 s all-red, 6 s vertical green, 1 s all-red.
+    const double phase = std::fmod(t + 3.1 * (ix + 2 * iy), 14.0);
+    return horizontal ? phase < 6.0 : (phase >= 7.0 && phase < 13.0);
+}
+
+void Simulator::move_car(Object& o, double dt, double t) {
+    const double len = o.horizontal ? o.w : o.h;
+    const double pos = o.horizontal ? o.x : o.y;
+    const double lane = o.horizontal ? o.y : o.x;
+    const auto& cross = o.horizontal ? road_x_ : road_y_;  // roads this car crosses
+    const auto& along = o.horizontal ? road_y_ : road_x_;  // the road family it drives on
+    int my_road = 0;
+    for (int k = 0; k < static_cast<int>(along.size()); ++k) {
+        if (std::abs(along[k] - lane) < std::abs(along[my_road] - lane)) my_road = k;
+    }
+
+    // How far this car may move: stop line of a red light ahead, and the car in front.
+    double limit = 1e9;
+    int next = -1;
+    double next_dist = 1e9;
+    for (int k = 0; k < static_cast<int>(cross.size()); ++k) {
+        const double d = (cross[k] - pos) * o.dir;
+        if (d > 0 && d < next_dist) { next_dist = d; next = k; }
+    }
+    if (next >= 0) {
+        const int ix = o.horizontal ? next : my_road, iy = o.horizontal ? my_road : next;
+        const double to_stop_line = next_dist - (kRoadHalf + 8 + len / 2);
+        if (to_stop_line >= -1 && !green(o.horizontal, ix, iy, t)) limit = std::max(0.0, to_stop_line);
+    }
+    for (const auto& p : objects_) {
+        if (&p == &o || !p.car || p.horizontal != o.horizontal || p.dir != o.dir) continue;
+        if (std::abs((o.horizontal ? p.y : p.x) - lane) > 4) continue;
+        const double ahead = ((o.horizontal ? p.x : p.y) - pos) * o.dir;
+        const double p_len = o.horizontal ? p.w : p.h;
+        if (ahead > 0) limit = std::min(limit, std::max(0.0, ahead - (len + p_len) / 2 - 12));
+    }
+    // Accelerate towards cruise speed, never past the limit (so queues and stops happen).
+    const double v = std::min(o.cruise, o.speed + 160 * dt);
+    const double step = std::min(v * dt, limit);
+    o.speed = step / dt;
+    const double new_pos = pos + o.dir * step;
+
+    // Passing the centre of an intersection: sometimes turn into a free lane of the crossing road.
+    bool turned = false;
+    if (next >= 0 && (cross[next] - pos) * (cross[next] - new_pos) <= 0 && rng_.bernoulli(0.25)) {
+        const int dir2 = rng_.bernoulli(0.5) ? 1 : -1;
+        const bool h2 = !o.horizontal;
+        const double lane2 = h2 ? cross[next] + dir2 * kLane : cross[next] - dir2 * kLane;
+        const double pos2 = lane;  // along the new road we start at our old lane
+        if (lane_free(h2, dir2, lane2, pos2, 80, &o)) {
+            o.horizontal = h2;
+            o.dir = dir2;
+            std::swap(o.w, o.h);
+            if (h2) { o.y = lane2; o.x = pos2; } else { o.x = lane2; o.y = pos2; }
+            o.speed *= 0.6;  // slow through the turn
+            turned = true;
+        }
+    }
+    if (!turned) {
+        if (o.horizontal) o.x = new_pos; else o.y = new_pos;
+    }
+    o.vx = o.horizontal ? o.dir * o.speed : 0;
+    o.vy = o.horizontal ? 0 : o.dir * o.speed;
+}
+
 void Simulator::move_objects(double dt) {
+    const double t = frame_ / p_.fps;
     for (auto& o : objects_) {
         if (o.car) {
-            // At an intersection, sometimes turn (non-linear motion, exactly what coasting gets wrong).
-            const bool horizontal = std::abs(o.vx) > 0;
-            const auto& cross = horizontal ? road_x_ : road_y_;
-            for (int k = 0; k < static_cast<int>(cross.size()); ++k) {
-                const double c = cross[k];
-                const double pos = horizontal ? o.x : o.y;
-                const double v = horizontal ? o.vx : o.vy;
-                const double next = pos + v * dt;
-                if (k == o.last_crossing || (pos - c) * (next - c) > 0) continue;
-                o.last_crossing = k;
-                if (!rng_.bernoulli(0.25)) continue;
-                const double speed = std::abs(v);
-                const int dir = rng_.bernoulli(0.5) ? 1 : -1;
-                if (horizontal) {
-                    o.x = c - dir * kLane;
-                    o.vx = 0;
-                    o.vy = dir * speed;
-                } else {
-                    o.y = c + dir * kLane;
-                    o.vy = 0;
-                    o.vx = dir * speed;
-                }
-                std::swap(o.w, o.h);
-                // The road we just joined: the index refers to the other road family now.
-                o.last_crossing = -1;
-                const auto& other = horizontal ? road_y_ : road_x_;
-                for (int q = 0; q < static_cast<int>(other.size()); ++q) {
-                    if (std::abs(other[q] - (horizontal ? o.y : o.x)) < kRoadHalf + 1) o.last_crossing = q;
-                }
-                break;
-            }
-        } else {
-            o.heading_timer -= dt;
-            if (o.heading_timer <= 0) {
-                const double a = std::atan2(o.vy, o.vx) + rng_.uniform(-1.2, 1.2);
-                const double speed = std::hypot(o.vx, o.vy);
-                o.vx = speed * std::cos(a);
-                o.vy = speed * std::sin(a);
-                o.heading_timer = rng_.uniform(2, 5);
-            }
+            move_car(o, dt, t);
+            continue;
+        }
+        o.heading_timer -= dt;
+        if (o.heading_timer <= 0) {
+            const double a = std::atan2(o.vy, o.vx) + rng_.uniform(-1.2, 1.2);
+            const double speed = std::hypot(o.vx, o.vy);
+            o.vx = speed * std::cos(a);
+            o.vy = speed * std::sin(a);
+            o.heading_timer = rng_.uniform(2, 5);
         }
         o.x += o.vx * dt;
         o.y += o.vy * dt;
