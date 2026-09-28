@@ -1,6 +1,6 @@
 # Results
 
-Generated 2026-09-28 by `eval/sweep.py`, seed 42, commit `2d32d11`.
+Generated 2026-09-28 by `eval/sweep.py`, seed 42, commit `2b9a120`.
 VisDrone2019-MOT val, 5 classes (pedestrian, car, van, truck, bus), class-agnostic. Detections = ground truth + seeded noise (jitter, occlusion-dependent misses and scores, false positives).
 HOTA/AssA/IDF1/MOTA/IDSW from TrackEval. *Recoveries* = confirmed tracks re-acquired after ≥ 2 missed frames; *correct* = the re-acquired detection is the same ground-truth object.
 
